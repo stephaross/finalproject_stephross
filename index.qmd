@@ -4,7 +4,7 @@ title: "Trends in Sugar Intake and CVD Mortality in Countries with 100M"
 author: "Stephanie Ross"
 format: 
   dashboard:
-    github: https://github.com/YOUR_URL
+    github: https://stephaross.github.io/finalproject_stephross/
 theme: lux
 execute:
   echo: false
@@ -529,6 +529,8 @@ htmltools::browsable(
 
 
 # ABOUT
+This page is looking at the relationship of sugar intake and CVD mortality from 1980 to 2018. It would appear that sugar intake has increased over time. The rates of CVD mortality have varied across countries and over time but the biggest increases appear to be in Russia. There correlation between sugar intake and CVD mortality is stronger in 2018 vs  1980 but these findings should be interpreted with caution.  
+
 Data for this project was taken from gapminder and IHME. 
 
 Sugar intake is measured in grams per person and day. It is quantity of fodd consumption of sugar and sweetners. The data is based on the Food and Agriculture Organization of the United Nations. The url for the data is here: https://www.gapminder.org/data/. 
@@ -536,3 +538,5 @@ Sugar intake is measured in grams per person and day. It is quantity of fodd con
 Countries with a population of more than 100M in 2024 was obtained from the World Population Review.  The url for the data is here: https://worldpopulationreview.com/countries
 
 Rates of CVD mortality was obtained from the Institute for Health Metrics and Evaluation using results from the 2021 Global Burden of Disease (GBD) study. The following citation is here: Global Burden of Disease Collaborative Network. Global Burden of Disease Study 2021 (GBD 2021) Results. Seattle, United States: Institute for Health Metrics and Evaluation (IHME), 2022. Available from https://vizhub.healthdata.org/gbd-results/.
+
+Github link: https://stephaross.github.io/finalproject_stephross/
