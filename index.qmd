@@ -1,0 +1,538 @@
+
+--- 
+title: "Trends in Sugar Intake and CVD Mortality in Countries with 100M"  
+author: "Stephanie Ross"
+format: 
+  dashboard:
+    github: https://github.com/YOUR_URL
+theme: lux
+execute:
+  echo: false
+  warning: false
+  message: false
+
+---
+
+```{r}
+# Load packages 
+if(!require(pacman)) install.packages("pacman")
+pacman::p_load(tidyverse, gapminder,
+               bslib, bsicons, shiny, 
+               rnaturalearth, plotly, 
+               countrycode, htmltools, 
+               reactable, rgeoboundaries, ggplot2, 
+               gganimate, viridis, htmltools, purrr, magick, here
+               )
+
+```
+
+```{r results='hide'}
+#Filtering sugar data 
+d1 <- read_csv(here("data/sugar_per_person_g_per_day.csv")) %>% filter(country %in% c("Vietnam","Congo, Rep.", "India", "China", "USA","Indonesia" , "Pakistan" ,
+ "Nigeria", "Brazil", "Bangladesh" , "Russia", "Ethiopia", "Mexico", "Japan", "Egypt", "Philippines" ))
+
+
+d <- d1 %>%  pivot_longer(!country, names_to = "year", values_to = "prevalence") %>%  mutate(country = case_when(country == "USA" ~ "United States", TRUE ~ country))
+
+d <- left_join(d, country_codes, by=join_by("country"=="country")) %>% filter(!(year %in% 1961:1979))
+
+#Cleaning the CVD rate data and adding map details
+cvd <- read_csv(here("data/IHME-GBD_2021_DATA-2406961d-1.csv")) %>%  filter(cause_name %in% "Cardiovascular diseases") %>% arrange(location_name, year)
+
+head(cvd)
+
+#setdiff(country_codes$country, cvd$location_name)
+#setdiff(cvd$location_name, country_codes$country)
+
+
+df <- cvd %>%
+  mutate(location_name = str_replace_all(location_name, 
+    c("Republic of " = "", 
+      "Kingdom of " = "", 
+      "Islamic " = "", 
+      "the " = "", 
+      "Democratic " = "", 
+      "Commonwealth of " = "", 
+      "Federal " = "", 
+      "State of " = "", 
+      "People's " = "",
+      "Arab " = "",
+      "Independent " = ""))) 
+unique(df$location_name)
+
+#setdiff(country_codes$country, df$location_name)
+#setdiff(df$location_name, country_codes$country)
+
+cvd_map <- left_join(country_codes, df, by=join_by("country"=="location_name"))
+
+map <- rnaturalearth::ne_countries(returnclass = "sf") 
+
+
+#setdiff(map$adm0_a3, cvd_map$iso_alpha)
+#setdiff(cvd_map$iso_alpha, map$adm0_a3)
+
+map_data <- left_join(map, cvd_map, by=join_by("adm0_a3"=="iso_alpha")) 
+#class(map_data )
+#dim(map_data )
+
+cvd_short <- cvd_map %>% select("iso_alpha", "year", "val") %>% mutate(YEAR = as.character(year))
+
+cvd_sugar <- left_join(d, cvd_short, by=join_by("iso_alpha"=="iso_alpha", "year"=="YEAR"))
+
+```
+
+```{r results='hide'}
+
+#Estimates for value boxes  
+mean_1980 <- 
+d %>% 
+  filter(year == 1980) %>% 
+  summarize(mean_prevalence = round(mean(as.numeric(prevalence), na.rm = TRUE), 1)) 
+
+mean_2018 <- 
+d %>% 
+  filter(year == 2018) %>% 
+  summarize(mean_prevalence = round(mean(as.numeric(prevalence), na.rm = TRUE), 1)) 
+
+high_p_1980 <- 
+  d %>% filter(year == 1980) %>% 
+  arrange(-prevalence) %>% 
+  head(1) %>% 
+  pull(country)
+
+high_p_value_1980 <- 
+  d %>% filter(year == 1980) %>% 
+  arrange(-prevalence) %>% 
+  head(1) %>% 
+  pull(prevalence) %>% 
+  round(1)
+
+low_p_1980 <- 
+  d %>% filter(year == 1980) %>% 
+  arrange(prevalence) %>% 
+  head(1) %>% 
+  pull(country)
+
+low_p_value_1980 <- 
+  d %>% filter(year == 1980) %>% 
+  arrange(prevalence) %>% 
+  head(1) %>% 
+  pull(prevalence) %>% 
+  round(1)
+
+high_p_2018  <- 
+  d %>% filter(year == 2018 ) %>% 
+  arrange(-prevalence) %>% 
+  head(1) %>% 
+  pull(country)
+
+high_p_value_2018  <- 
+  d %>% filter(year == 2018 ) %>% 
+  arrange(-prevalence) %>% 
+  head(1) %>% 
+  pull(prevalence) %>% 
+  round(1)
+
+low_p_2018  <- 
+  d %>% filter(year == 2018 ) %>% 
+  arrange(prevalence) %>% 
+  head(1) %>% 
+  pull(country)
+
+low_p_value_2018  <- 
+  d %>% filter(year == 2018 ) %>% 
+  arrange(prevalence) %>% 
+  head(1) %>% 
+  pull(prevalence) %>% 
+  round(1)
+
+high_cvd_1980 <- 
+cvd %>% 
+  filter(year == 1980) %>% 
+arrange(-val) %>% 
+  head(1) %>% 
+  pull(val) %>% 
+  round(1)
+
+high_cvd_country_1980 <- 
+cvd %>% 
+  filter(year == 1980) %>% 
+arrange(-val) %>% 
+  head(1) %>% 
+  pull(location_name)
+
+low_cvd_1980 <- 
+cvd %>% 
+  filter(year == 1980) %>% 
+arrange(val) %>% 
+  head(1) %>% 
+  pull(val) %>% 
+  round(1)
+
+low_cvd_country_1980 <- 
+cvd %>% 
+  filter(year == 1980) %>% 
+arrange(val) %>% 
+  head(1) %>% 
+  pull(location_name)
+
+high_cvd_2018 <- 
+cvd %>% 
+  filter(year == 2018) %>% 
+arrange(-val) %>% 
+  head(1) %>% 
+  pull(val) %>% 
+  round(1)
+
+high_cvd_country_2018 <- 
+cvd %>% 
+  filter(year == 2018) %>% 
+arrange(-val) %>% 
+  head(1) %>% 
+  pull(location_name)
+
+low_cvd_2018 <- 
+cvd %>% 
+  filter(year == 2018) %>% 
+arrange(val) %>% 
+  head(1) %>% 
+  pull(val) %>% 
+  round(1)
+
+low_cvd_country_2018 <- 
+cvd %>% 
+  filter(year == 2018) %>% 
+arrange(val) %>% 
+  head(1) %>% 
+  pull(location_name)
+
+high_sugar_cvd_1980 <- 
+cvd_sugar %>% 
+  filter(year == 1980) %>% 
+  summarise(correlation = cor(as.numeric(prevalence), as.numeric(val), use = "complete.obs"))%>% 
+  round(3)
+
+high_sugar_cvd_2018 <- 
+cvd_sugar %>% 
+  filter(year == 2018) %>% 
+  summarise(correlation = cor(as.numeric(prevalence), as.numeric(val), use = "complete.obs"))%>% 
+  round(3)
+
+```
+
+
+```{r results='hide'}
+#Plot changes in sugar intake over time 
+
+plotly_data <- d %>%
+  mutate(tooltip_text = paste(country, ":", prevalence ))
+
+plotly_data$year <- as.numeric(plotly_data$year)
+
+ncd_plot <- 
+  ggplot(data = plotly_data, aes(x = year, y = prevalence, color = country, text = tooltip_text, group = country)) +
+  geom_line() +
+  geom_point() +
+  scale_y_log10() +
+  labs(title = "Trend in sugar intake (g/d) over time", x = "Year", y = "Sugar intake (g/d)", color = "Country") + 
+scale_x_continuous(breaks = seq(min(plotly_data$year), max(plotly_data$year), by = 5)) +
+  theme_minimal() +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank())
+
+interactive_plot <- ggplotly(ncd_plot, tooltip = "text") %>%
+  layout(hovermode = "x unified")
+
+```
+
+
+```{r results='hide'}
+#Global Map of CVD Rates  
+
+cvd_map_plot <- list()
+
+for(i in 1980:2021) {
+    cvd_map_plot[[paste(i)]] <- map_data %>% filter(year == i) %>% 
+        ggplot() +
+        geom_sf(aes(fill = val)) +
+        scale_fill_viridis_c(option = "H") +
+        labs(
+            title = paste("Global rate of CVD mortality in ", i, sep=""),
+            subtitle = "Rate per 100,000",
+            fill = "Rate "
+        ) +
+        theme_void()
+    
+    ggsave(filename=paste("cvd_map_plot_", i, ".png", sep=""), plot = cvd_map_plot[[paste(i)]], width = 10, height = 8)
+}   
+      
+      
+```
+
+```{r}
+# Animated plot showing the changes of CVD in top 100M countries 
+topcountries_rate_plot <- 
+  cvd_map %>% 
+  filter(country %in% c("Vietnam", "Congo, Rep.", "India", "China", "USA", 
+                        "Indonesia", "Pakistan", "Nigeria", "Brazil", 
+                        "Bangladesh", "Russia", "Ethiopia", "Mexico", 
+                        "Japan", "Egypt", "Philippines")) %>% 
+  mutate(text_value = round(val, 1))
+
+topcountries_rate_plot_animated <- plot_ly(
+  data = topcountries_rate_plot,
+  y = ~reorder(country, val),  
+  x = ~val,                    
+  color = ~country,             
+  frame = ~year,                
+  type = 'bar',
+  orientation = 'h',            
+  hoverinfo = 'text',
+  text = ~text_value,                 
+  textposition = 'outside'     
+) %>%
+  layout(
+    yaxis = list(title = ""),  
+    xaxis = list(title = "Rate of CVD mortality (per 100,000)"),
+    barmode = 'stack',          
+    title = "Rate of CVD mortality in Countries with more than 100M"
+  ) %>%
+  animation_opts(
+    frame = 1000,      
+    easing = "linear", 
+    redraw = FALSE     
+  )
+
+```
+
+
+
+
+# Sugar intake 
+
+## Row 1 {height=25%}
+
+
+```{r}
+value_box(
+  title = "Highest g/d value in 1980",
+  value = high_p_value_1980,
+  showcase = bsicons::bs_icon("arrow-up"),
+  theme = value_box_theme(bg = "#214773"),
+  p(paste0("(", high_p_1980, ")"))
+)
+```
+
+```{r}
+value_box(
+  title = "Highest g/d value in 2018",
+  value = high_p_value_2018,  
+  showcase = bsicons::bs_icon("arrow-up"),
+  theme = value_box_theme(bg = "#214773"),
+  p(paste0("(", high_p_2018, ")"))
+)
+```
+
+
+```{r}
+value_box(
+  title = "Lowest g/d value in  1980",
+  value = low_p_value_1980 ,
+  showcase = bsicons::bs_icon("arrow-down"),
+  theme = value_box_theme(bg = "#3f71ab"),
+  p(paste0("(", low_p_1980, ")"))
+)
+```
+
+```{r}
+value_box(
+  title = "Lowest g/d value in  2018",
+  value = low_p_value_2018 ,
+  showcase = bsicons::bs_icon("arrow-down"),
+  theme = value_box_theme(bg = "#3f71ab"),
+  p(paste0("(", low_p_2018, ")"))
+)
+```
+
+```{r}
+value_box(
+  title = "Mean sugar intake in 1980",
+  value = mean_1980 ,
+  showcase = bsicons::bs_icon("arrow-left-right"),
+  theme = value_box_theme(bg = "#3f71ab"),
+  p("g/d")
+)
+```
+
+```{r}
+value_box(
+  title = "Mean sugar intake in 2018",
+  value = mean_2018 ,
+  showcase = bsicons::bs_icon("arrow-left-right"),
+  theme = value_box_theme(bg = "#3f71ab"),
+  p("g/d")
+)
+```
+
+## Row 2 {height=75%}
+
+```{r}
+interactive_plot
+```
+
+# Rates of CVD Mortality 
+
+## Row (height=25%)
+
+```{r}
+value_box(
+  title = "Highest rate of CVD Mortality in  1980 per 100,000",
+  value =  high_cvd_1980  ,
+  showcase = bsicons::bs_icon("arrow-up"),
+  theme = value_box_theme(bg = "#3f71ab"),
+  p(paste0("(", high_cvd_country_1980, ")"))
+)
+```
+
+```{r}
+value_box(
+  title = "Lowest rate of CVD Mortality in  1980 per 100,000",
+  value = low_cvd_1980  ,
+  showcase = bsicons::bs_icon("arrow-down"),
+  theme = value_box_theme(bg = "#3f71ab"),
+  p(paste0("(", low_cvd_country_1980, ")"))
+)
+```
+
+```{r}
+value_box(
+  title = "Highest rate of CVD Mortality in 2018 per 100,000",
+  value =  high_cvd_2018  ,
+  showcase = bsicons::bs_icon("arrow-up"),
+  theme = value_box_theme(bg = "#3f71ab"),
+  p(paste0("(", high_cvd_country_1980, ")"))
+)
+```
+
+```{r}
+value_box(
+  title = "Lowest rate of CVD Mortality in 2018 per 100,000",
+  value = low_cvd_2018  ,
+  showcase = bsicons::bs_icon("arrow-down"),
+  theme = value_box_theme(bg = "#3f71ab"),
+  p(paste0("(", low_cvd_country_1980, ")"))
+)
+```
+
+## Row 2 (height=75%)
+
+### column 1 (width=30%)
+
+```{r}
+topcountries_rate_plot_animated
+```
+
+### column 2 (width=70%)
+
+```{r}
+#Create a gif of the map #
+
+image_files <- list.files(pattern = "\\.png$", full.names = TRUE)
+
+images <- map(image_files, image_read)
+
+animated_gif <- image_animate(image_join(images), fps = 10)  
+
+image_write(animated_gif, "animated.gif")
+
+knitr::include_graphics("animated.gif")
+
+```
+
+
+
+# Sugar Intake and CVD Mortality 
+## Row 1 {height=25%}
+
+
+```{r}
+value_box(
+  title = "Correlation between sugar intake and CVD mortality",
+  value = high_sugar_cvd_1980,
+  showcase = bsicons::bs_icon("arrow-up"),
+  theme = value_box_theme(bg = "#214773"),
+  p("1980")
+)
+```
+
+```{r}
+value_box(
+  title = "Correlation between sugar intake and CVD mortality",
+  value = high_sugar_cvd_2018,
+  showcase = bsicons::bs_icon("arrow-up"),
+  theme = value_box_theme(bg = "#214773"),
+  p("2018")
+)
+```
+
+## Row 2 {height=75%}
+
+```{r}
+gg <- cvd_sugar %>% 
+ ggplot(aes(x = val, y = prevalence, color = country, frame = year)) +
+ geom_point() +
+ scale_x_log10() +
+ theme_minimal() +
+  labs(x="Rate of CVD per 100,000",
+  y="Sugar intake (g/d)", 
+  title="Relationship between sugar intake and CVD mortality")
+
+ggplotly(gg)
+```
+
+
+# Sugar Intake Data Download
+
+```{r}
+htmltools::browsable(
+  tagList(
+    reactable(d1, 
+              elementId = "sugar-data-table", 
+              searchable = T, 
+              filterable = T), 
+    
+    tags$button("Download as CSV", 
+                onclick = "Reactable.downloadDataCSV('sugar-data-table')")
+  )
+)
+```
+
+
+# CVD Mortality Data Download 
+
+```{r}
+
+htmltools::browsable(
+  tagList(
+    reactable(cvd, 
+              elementId = "cvd-data-table", 
+              searchable = T, 
+              filterable = T), 
+    
+    tags$button("Download as CSV", 
+                onclick = "Reactable.downloadDataCSV('cvd-data-table')")
+  )
+)
+```
+
+```
+
+
+# ABOUT
+Data for this project was taken from gapminder and IHME. 
+
+Sugar intake is measured in grams per person and day. It is quantity of fodd consumption of sugar and sweetners. The data is based on the Food and Agriculture Organization of the United Nations. The url for the data is here: https://www.gapminder.org/data/. 
+
+Countries with a population of more than 100M in 2024 was obtained from the World Population Review.  The url for the data is here: https://worldpopulationreview.com/countries
+
+Rates of CVD mortality was obtained from the Institute for Health Metrics and Evaluation using results from the 2021 Global Burden of Disease (GBD) study. The following citation is here: Global Burden of Disease Collaborative Network. Global Burden of Disease Study 2021 (GBD 2021) Results. Seattle, United States: Institute for Health Metrics and Evaluation (IHME), 2022. Available from https://vizhub.healthdata.org/gbd-results/.
